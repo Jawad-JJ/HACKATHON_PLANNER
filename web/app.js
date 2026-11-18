@@ -82,7 +82,7 @@ const VIEWS = {
 
   plan(s) {
     const p = s.plan, v = p.venue, f = p.food, j = p.judging, sc = p.schedule, b = p.budget;
-    const tl = (sc.slots || []).map((x) => `<div class="t-${esc(x.type)}" style="flex:${x.end - x.start}" title="${esc(x.name)} ${x.start}-${x.end} min">${esc(x.type === "build" ? "Build" : x.name)}</div>`).join("");
+    const tl = (sc.slots || []).map((x) => `<div class="t-${esc(x.type)}" style="flex:${x.end - x.start}" title="${esc(x.name)} ${x.start}-${x.end} min">${esc(x.type === "build" ? "Build" : x.type === "judging" ? "Judging" : x.name)}</div>`).join("");
     const byJ = {}; (j.assignment || []).forEach((a) => (byJ[a.judge] = byJ[a.judge] || []).push(`T${a.team} (r${a.round})`));
     return `<div class="card"><h3>Venue</h3>${v.chosen ? `<p><b>${esc(v.chosen.name)}</b> seats ${v.chosen.capacity} for ${v.people_on_site} people · ${rs(v.chosen.cost)} ${src(v.chosen.src)}</p>` : "<p>-</p>"}
       ${v.required_features.length ? `<p class="mute">Must have: ${v.required_features.map(esc).join(", ")}</p>` : ""}
