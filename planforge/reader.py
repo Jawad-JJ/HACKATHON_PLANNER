@@ -56,6 +56,11 @@ _MULT = {"k": 1_000, "thousand": 1_000, "hazar": 1_000, "hazaar": 1_000, "lakh":
          "lakhs": 100_000, "million": 1_000_000, "crore": 10_000_000}
 
 
+_WORDS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve "
+                                     "thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split())}
+_WORDS.update({"thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "hundred": 100, "a dozen": 12, "dozen": 12})
+
+
 def num(v):
     """'Rs 1,200' -> 1200 ; '1.5 lakh' -> 150000 ; 15 -> 15 ; junk -> None."""
     if v is None or isinstance(v, bool):
@@ -65,6 +70,9 @@ def num(v):
     s = str(v).lower().replace(",", "")
     m = re.search(r"(-?\d+(?:\.\d+)?)\s*([a-z]+)?", s)
     if not m:
+        for w, n in sorted(_WORDS.items(), key=lambda kv: -len(kv[0])):
+            if re.search(rf"\b{w}\b", s):
+                return n
         return None
     val = float(m.group(1)) * _MULT.get(m.group(2) or "", 1)
     return int(val) if val.is_integer() else val
@@ -172,6 +180,10 @@ def normalize_fact(f: dict):
             out[k] = v.strip() if isinstance(v, str) else v
     if out["kind"] == "requirement":
         out["value"] = num(f.get("value"))
+    if out["kind"] in ("duration", "schedule_item") and out.get("minutes") is None and f.get("hours") is not None:
+        h = num(f.get("hours"))
+        out["minutes"] = int(h * 60) if h is not None else None
+        out.pop("hours", None)
     if out["kind"] == "headcount":
         out["role"] = norm_head_role(f.get("role"))
     if out.get("area") and out["area"] not in AREAS:

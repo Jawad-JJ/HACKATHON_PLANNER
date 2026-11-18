@@ -142,3 +142,25 @@ class Changes(unittest.TestCase):
         self.assertTrue(r["session"]["plan"]["valid"])
         self.assertEqual(r["session"]["plan"]["budget"]["cap"], 650000)
         self.assertEqual(r["run"]["decisions"][0]["verdict"], "rejected")
+
+
+class PackOrUpdate(unittest.TestCase):
+    def test_long_email_update_does_not_wipe_plan(self):
+        state = Path(tempfile.mkdtemp())
+        run(read_input(SAMPLES / "sample_pack.txt"), scripted("sample_pack_extraction.json"), state)
+        p = Path(tempfile.mkdtemp()) / "email.txt"
+        p.write_text("From: Finance <finance@uni.edu>\nTo: Organisers\nDate: 15 Nov\nSubject: printing\n"
+                     "The printing bill came in at Rs 15,000, not Rs 10,000.\nRegards", encoding="utf-8")
+        r = run(read_input(p), scripted("practice_change_printing_extraction.json"), state)
+        self.assertEqual(r["run"]["mode"], "update")
+        self.assertEqual(r["run"]["run_id"], 2)
+        self.assertEqual(r["session"]["plan"]["budget"]["total"], 547400 + 5000)
+        self.assertEqual([c["number"] for c in r["session"]["calls"]], [1, 2])
+        self.assertTrue((state / "prediction.json").exists())
+
+    def test_same_pack_twice_starts_fresh(self):
+        state = Path(tempfile.mkdtemp())
+        run(read_input(SAMPLES / "sample_pack.txt"), scripted("sample_pack_extraction.json"), state)
+        r = run(read_input(SAMPLES / "sample_pack.txt"), scripted("sample_pack_extraction.json"), state)
+        self.assertEqual((r["run"]["mode"], r["run"]["run_id"], len(r["session"]["calls"])), ("new pack", 1, 1))
+        self.assertTrue(list((state / "archive").glob("session-*.json")))

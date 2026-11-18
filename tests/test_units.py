@@ -91,3 +91,9 @@ class HeadcountRoles(unittest.TestCase):
         roles = [normalize_fact({"kind": "headcount", "role": r, "count": 5})["role"]
                  for r in ("participants", "Volunteers", "jury members", "students")]
         self.assertEqual(roles, ["students", "staff", "judges", "students"])
+
+
+class Words(unittest.TestCase):
+    def test_number_words_and_hours(self):
+        self.assertEqual([num("three"), num("Ten staff"), num("twenty")], [3, 10, 20])
+        self.assertEqual(normalize_fact({"kind": "duration", "hours": 4})["minutes"], 240)

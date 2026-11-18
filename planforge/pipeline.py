@@ -3,6 +3,7 @@
   read file -> decide new pack / update -> PREDICT and save -> one `reading` call (+1 repair max)
   -> gate each message in date order -> re-plan in code -> validate -> save -> export
 """
+import json
 import time
 
 from . import ledger
@@ -10,7 +11,7 @@ from .gate import admit, plan_for
 from .ingest import RawInput
 from .llm import CallBudgetExceeded, LLMClient
 from .reader import SYSTEM_PROMPT, build_user_prompt, parse_reading
-from .session import STATE_DIR, archive, load, new_session, save
+from .session import STATE_DIR, archive, atomic_write, load, new_session, save
 from .trace import to_dict
 from .validate import checks, is_valid
 
@@ -20,34 +21,32 @@ UPDATE_MAX_CALLS = 5        # brief: at most 5 model calls per update; we plan f
 PACK_MIN_BLOCKS = 4
 
 
+PREDICTION = {"tags": ["reading"], "calls": 1,
+              "why": "language is read once by the model; venue, schedule, food, judging and budget "
+                     "are recomputed in plain code, so no area makes a model call"}
+
+
 def looks_like_pack(raw: RawInput, sess) -> bool:
+    """Only used to pick the time budget before the call; the final decision uses what the model read."""
     return sess is None or raw.sha256 in sess.get("pack_hashes", []) or len(raw.blocks) >= PACK_MIN_BLOCKS
 
 
 def run(raw: RawInput, client: LLMClient, state_dir=STATE_DIR) -> dict:
     t0 = time.monotonic()
     old = load(state_dir)
-    is_pack = looks_like_pack(raw, old)
-    sess = new_session() if is_pack else old
-    run_id = len(sess["runs"]) + 1
-    prediction = {"tags": ["reading"], "calls": 1,
-                  "why": "language is read once by the model; venue, schedule, food, judging and budget "
-                         "are recomputed in plain code, so no area makes a model call"}
-    run_rec = {"run_id": run_id, "input": raw.path, "sha256": raw.sha256, "mode": "new pack" if is_pack else "update",
-               "prediction": prediction, "predicted_at": time.strftime("%H:%M:%S"), "decisions": [],
+    guess_pack = looks_like_pack(raw, old)
+    run_rec = {"run_id": None, "input": raw.path, "sha256": raw.sha256, "mode": None,
+               "prediction": PREDICTION, "predicted_at": time.strftime("%H:%M:%S"), "decisions": [],
                "actual_tags": [], "calls": [], "seconds": None, "status": "running"}
-    sess["runs"].append(run_rec)
-    if is_pack and old is not None:
-        archive(state_dir)
-    save(sess, state_dir)                       # prediction is on disk BEFORE any model call
+    atomic_write(state_dir / "prediction.json", json.dumps(run_rec, indent=1))   # on disk BEFORE any model call
 
-    client.run_id = run_id
+    client.run_id = -1                          # provisional; renumbered when stored in the session
     client.max_calls = UPDATE_MAX_CALLS
-    client.deadline = t0 + (FULL_RUN_SECONDS if is_pack else UPDATE_SECONDS)
+    client.deadline = t0 + (FULL_RUN_SECONDS if guess_pack else UPDATE_SECONDS)
 
     # ------------------------------------------------------------------ the reading call(s)
     user = build_user_prompt(raw.blocks)
-    messages, error = None, ""
+    messages, error, recs = None, "", []
     attempts = [(SYSTEM_PROMPT, user, True)]
     while attempts:
         system, prompt, jm = attempts.pop(0)
@@ -56,11 +55,11 @@ def run(raw: RawInput, client: LLMClient, state_dir=STATE_DIR) -> dict:
         except CallBudgetExceeded as e:
             error = str(e)
             break
-        _store_call(sess, run_rec, rec)
+        recs.append(rec)
         if rec.status != "ok":
             error = rec.error
             time_left = client.deadline - time.monotonic()
-            if len(run_rec["calls"]) < 2 and time_left > 15:   # one retry, without JSON mode if that was the problem
+            if len(recs) < 2 and time_left > 15:   # one retry, without JSON mode if that was the problem
                 no_json = "response_format" in rec.error or "json" in rec.error.lower()
                 attempts.append((SYSTEM_PROMPT, user, jm and not no_json))
             continue
@@ -69,14 +68,26 @@ def run(raw: RawInput, client: LLMClient, state_dir=STATE_DIR) -> dict:
             break
         except Exception as e:  # noqa: BLE001
             error = f"model output was not usable JSON: {e}"
-            if len(run_rec["calls"]) < 2:
+            if len(recs) < 2:
                 attempts.append((SYSTEM_PROMPT, user + "\n\nReturn ONLY the JSON object described.", jm))
+
+    # ------------------------------------------------------------------ new pack or update? (from what was read)
+    n_relevant = len([m for m in (messages or []) if m["relevant"]])
+    is_pack = old is None or raw.sha256 in old.get("pack_hashes", []) or n_relevant >= 3 or \
+        (messages is None and guess_pack and len(raw.blocks) >= 8)
+    if is_pack and old is not None and messages is not None:
+        archive(state_dir)
+    sess = new_session() if (is_pack and (messages is not None or old is None)) else old
+    run_rec["run_id"] = len(sess["runs"]) + 1
+    run_rec["mode"] = "new pack" if is_pack else "update"
+    sess["runs"].append(run_rec)
+    for rec in recs:
+        rec.run_id = run_rec["run_id"]
+        _store_call(sess, run_rec, rec)
+    run_id = run_rec["run_id"]
 
     if messages is None:
         run_rec.update(status="failed", error=error, seconds=round(time.monotonic() - t0, 2))
-        if is_pack and old is not None:   # a failed new pack must not wipe the previous session
-            old["runs"].append(run_rec)
-            sess = old
         save(sess, state_dir)
         return {"session": sess, "run": run_rec, "ok": False, "error": error}
 
@@ -136,7 +147,7 @@ def run(raw: RawInput, client: LLMClient, state_dir=STATE_DIR) -> dict:
     if is_pack:
         sess["pack_hashes"].append(raw.sha256)
     run_rec["actual_tags"] = sorted({c["tag"] for c in sess["calls"] if c["run_id"] == run_id})
-    run_rec["prediction_matched"] = run_rec["actual_tags"] == sorted(prediction["tags"])
+    run_rec["prediction_matched"] = run_rec["actual_tags"] == sorted(PREDICTION["tags"])
     run_rec["plan_valid"] = plan["valid"]
     run_rec["status"] = "ok"
     run_rec["seconds"] = round(time.monotonic() - t0, 2)
