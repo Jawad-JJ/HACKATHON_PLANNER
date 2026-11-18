@@ -51,7 +51,7 @@ archived in `state/archive/`. A file with one message updates the current plan. 
 ## Tests
 
 ```powershell
-python -m unittest discover -s tests -t .      # 25 tests, no network needed
+python -m unittest discover -s tests -t .      # 29 tests, no network needed
 ```
 
 They cover the sample pack (177 people, Hall A, Rs 1,200 box, Rs 547,400), both practice messages,

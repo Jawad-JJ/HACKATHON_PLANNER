@@ -109,3 +109,36 @@ class Fallback(unittest.TestCase):
         r = run(read_input(SAMPLES / "sample_pack.txt"), client, state)
         self.assertTrue(r["ok"])
         self.assertEqual([c["status"] for c in r["session"]["calls"]], ["error", "ok"])
+
+
+class Changes(unittest.TestCase):
+    def setUp(self):
+        self.state = Path(tempfile.mkdtemp())
+        run(read_input(SAMPLES / "sample_pack.txt"), scripted("sample_pack_extraction.json"), self.state)
+
+    def _msg(self, text, extraction):
+        p = Path(tempfile.mkdtemp()) / "m.txt"
+        p.write_text(text, encoding="utf-8")
+        return run(read_input(p), scripted(extraction), self.state)
+
+    def test_budget_cut_switches_to_cheaper_menu(self):
+        r = self._msg("Dean: budget is now Rs 500,000.", '{"messages":[{"blocks":[1],"sender":"Dean","role":"organizer",'
+                      '"relevant":true,"facts":[{"kind":"budget_cap","amount":500000}]}]}')
+        p = r["session"]["plan"]
+        self.assertTrue(p["valid"], plan_text(p))
+        self.assertEqual(p["food"]["chosen"]["name"], "Basic lunch box")
+        self.assertLessEqual(p["budget"]["total"], 500000)
+
+    def test_new_generator_rule_moves_venue(self):
+        r = self._msg("Dean: the venue must have a standby generator.", '{"messages":[{"blocks":[1],"sender":"Dean",'
+                      '"role":"organizer","relevant":true,"facts":[{"kind":"feature_requirement","area":"venue","feature":"generator"}]}]}')
+        p = r["session"]["plan"]
+        self.assertTrue(p["valid"], plan_text(p))
+        self.assertEqual(p["venue"]["chosen"]["name"], "Hall B")
+
+    def test_impossible_budget_cut_rejected(self):
+        r = self._msg("Dean: budget is now Rs 300,000.", '{"messages":[{"blocks":[1],"sender":"Dean","role":"organizer",'
+                      '"relevant":true,"facts":[{"kind":"budget_cap","amount":300000}]}]}')
+        self.assertTrue(r["session"]["plan"]["valid"])
+        self.assertEqual(r["session"]["plan"]["budget"]["cap"], 650000)
+        self.assertEqual(r["run"]["decisions"][0]["verdict"], "rejected")
