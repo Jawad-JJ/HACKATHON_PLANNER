@@ -122,6 +122,19 @@ def trace_text(sess: dict, run_ids=None) -> str:
     return "\n".join(L) + "\n"
 
 
+def rejected_text(sess, run_ids=None) -> str:
+    rows = [m for m in sess["messages"] if m["status"] != "accepted" and (run_ids is None or m["run_id"] in run_ids)]
+    if not rows:
+        return ""
+    L = ["=" * W, "REJECTED / OUTDATED / IGNORED MESSAGES" + ("" if run_ids is None else " (this run)"), "=" * W]
+    for m in rows:
+        L.append(f"[{m['status'].upper()}] {m['id']} {m['sender']} ({m.get('date_raw') or 'no date'})")
+        L.append("  \"" + (m["text"] or "").replace("\n", " ") + "\"")
+        for r in (m["reasons"] or ["no planning facts in this message"]):
+            L.append(f"  -> {r}")
+    return "\n".join(L) + "\n"
+
+
 def rejected(sess):
     return [{"message": m["id"], "sender": m["sender"], "date": m["date_raw"], "status": m["status"],
              "text": m["text"], "reasons": m["reasons"]}

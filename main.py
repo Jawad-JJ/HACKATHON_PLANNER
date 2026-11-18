@@ -11,7 +11,7 @@ from planforge.config import fallback_config, model_config
 from planforge.ingest import read_input
 from planforge.llm import LLMClient
 from planforge.pipeline import PREDICTION, run
-from planforge.render import export, plan_text, trace_text
+from planforge.render import export, plan_text, rejected_text, trace_text
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -36,6 +36,7 @@ def main(argv) -> int:
     plan = sess.get("plan")
     if plan:
         print(plan_text(plan))
+    print(rejected_text(sess, [r["run_id"]]))
     print(trace_text(sess, [r["run_id"]]))
     files = export(sess)
     print(f"Saved: {', '.join(f.split('/')[-1].split(chr(92))[-1] for f in files)} in outputs/")
