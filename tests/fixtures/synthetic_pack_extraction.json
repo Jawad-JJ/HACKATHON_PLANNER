@@ -1,0 +1,19 @@
+{"messages":[
+ {"blocks":[1],"sender":"Registrar office","role":"organizer","date":"2 Dec","relevant":true,"facts":[
+  {"kind":"duration","minutes":"3 hours"},{"kind":"start_time","time":"1:00 pm"},
+  {"kind":"headcount","role":"students","count":90},{"kind":"team_size","value":3},
+  {"kind":"budget_cap","amount":"Rs 400,000"},{"kind":"headcount","role":"staff","count":6},
+  {"kind":"schedule_item","name":"Asr prayer break","minutes":20,"at":"3:30 pm"},
+  {"kind":"feature_requirement","area":"venue","feature":"wheelchair accessible"}]},
+ {"blocks":[2],"sender":"Campus Venues","role":"venue","date":"28 Nov","relevant":true,"facts":[
+  {"kind":"venue_option","name":"Lab 1","capacity":120,"cost":60000,"features":[]},
+  {"kind":"venue_option","name":"Auditorium","capacity":150,"cost":90000,"features":["ramp","lift","wheelchair accessible"]}]},
+ {"blocks":[3],"sender":"Khan Caterers","role":"caterer","date":"30 Nov","relevant":true,"facts":[
+  {"kind":"food_option","name":"Biryani box","price_per_head":700,"features":["halal"]},
+  {"kind":"food_option","name":"Veg pulao","price_per_head":600,"features":["halal","vegetarian"]}]},
+ {"blocks":[4],"sender":"Judges desk","role":"judging","date":"1 Dec","relevant":true,"facts":[
+  {"kind":"headcount","role":"judges","count":12},
+  {"kind":"judge_terms","honorarium":4000,"minutes_per_team":20,"max_teams_per_judge":4}]},
+ {"blocks":[5],"sender":"Accounts","role":"finance","date":"1 Dec","relevant":true,"facts":[
+  {"kind":"committed_cost","item":"banners","amount":15000}]}
+]}

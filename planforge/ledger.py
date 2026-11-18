@@ -17,7 +17,7 @@ MONTHS = {m: i for i, m in enumerate(
 
 # kinds each restricted role may state; roles not listed may state anything
 LANES = {
-    "venue": {"venue_option", "optional_cost", "other"},
+    "venue": {"venue_option", "order_change", "optional_cost", "other"},
     "caterer": {"food_option", "order_change", "optional_cost", "other"},
     "judge": {"judge_change", "other"},
     "student": {"optional_cost", "other"},
