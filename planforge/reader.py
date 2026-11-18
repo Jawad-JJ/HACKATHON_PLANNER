@@ -17,8 +17,8 @@ KIND {fields}:
 headcount {"role":"students|staff|judges|other","count"}
 team_size {"value"} | teams {"count"} | duration {"minutes"} | start_time {"time":"HH:MM"}
 budget_cap {"amount"}
-venue_option {"name","capacity","cost","features":[str]}
-food_option {"name","price_per_head","features":[str]}
+venue_option {"name","capacity","cost","cost_per_hour","features":[str],"available":bool}
+food_option {"name","price_per_head","fixed_cost","features":[str],"available":bool}  fixed_cost = delivery/setup charge
 committed_cost {"item","amount"}  already ordered/billed; a corrected bill keeps the same item name
 optional_cost {"item","amount"}  a request or quote not yet approved
 judge_terms {"honorarium","minutes_per_team","max_teams_per_judge"}
@@ -101,14 +101,47 @@ def norm_name(s) -> str:
     return re.sub(r"[^a-z0-9 ]", " ", str(s or "").lower()).strip()
 
 
-_NUMERIC = {"count", "value", "minutes", "amount", "capacity", "cost", "price_per_head", "honorarium",
+KIND_ALIASES = {
+    "venue": "venue_option", "hall": "venue_option", "food": "food_option", "menu": "food_option", "catering": "food_option",
+    "budget": "budget_cap", "cap": "budget_cap", "cost": "committed_cost", "expense": "committed_cost",
+    "committed": "committed_cost", "quote": "optional_cost", "request": "optional_cost", "judges": "judge_terms",
+    "break": "schedule_item", "session": "schedule_item", "constraint": "other", "rule": "other",
+    "students": "headcount", "people": "headcount", "event_duration": "duration",
+}
+ROLE_ALIASES = {
+    "dean": "organizer", "admin": "organizer", "organiser": "organizer", "principal": "organizer", "registrar": "organizer",
+    "director": "organizer", "hod": "organizer", "accounts": "finance", "account": "finance", "treasurer": "finance",
+    "hall": "venue", "venue manager": "venue", "catering": "caterer", "food": "caterer", "vendor": "caterer",
+    "judging coordinator": "judging", "coordinator": "judging", "society": "student", "students": "student",
+    "participant": "student",
+}
+FIELD_ALIASES = {"seats": "capacity", "rent": "cost", "price": "price_per_head", "per_head": "price_per_head",
+                 "number": "count", "total": "amount", "honorarium_each": "honorarium", "duration": "minutes",
+                 "title": "name", "description": "text", "delivery": "fixed_cost", "delivery_cost": "fixed_cost"}
+ROLES = {"organizer", "finance", "venue", "caterer", "judging", "judge", "student", "other"}
+
+
+def norm_role(r) -> str:
+    r = str(r or "other").strip().lower()
+    if r in ROLES:
+        return r
+    for k, v in ROLE_ALIASES.items():
+        if k in r:
+            return v
+    return "other"
+
+
+_NUMERIC = {"count", "value", "minutes", "amount", "capacity", "cost", "cost_per_hour", "fixed_cost",
+            "price_per_head", "honorarium",
             "minutes_per_team", "max_teams_per_judge", "count_change", "delay_minutes", "quantity"}
 
 
 def normalize_fact(f: dict):
     if not isinstance(f, dict) or not f.get("kind"):
         return None
-    out = {"kind": str(f["kind"]).strip().lower(),
+    f = {FIELD_ALIASES.get(k, k): v for k, v in f.items()}
+    kind = str(f["kind"]).strip().lower().replace(" ", "_")
+    out = {"kind": KIND_ALIASES.get(kind, kind),
            "status": str(f.get("status") or "confirmed").lower(),
            "quote": str(f.get("quote") or "")[:200]}
     for k, v in f.items():
@@ -148,7 +181,7 @@ def parse_reading(text: str, n_blocks: int) -> list:
         out.append({
             "blocks": blocks,
             "sender": str(m.get("sender") or "unknown"),
-            "role": str(m.get("role") or "other").lower(),
+            "role": norm_role(m.get("role")),
             "date": m.get("date"),
             "relevant": bool(m.get("relevant", True)) and bool(facts),
             "facts": facts,
