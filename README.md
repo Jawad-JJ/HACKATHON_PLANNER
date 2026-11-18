@@ -74,6 +74,6 @@ and trace honesty. Test fixtures are hand-written and used only by tests.
 
 - `python serve.py`: local API + dashboard, using the **same** `pipeline.run` as the CLI. `HOST=0.0.0.0` to open it from a phone on the same Wi-Fi.
 - **PWA:** use "Install app" in Chrome/Edge (laptop) or "Add to Home screen" (phone).
-- **Vercel:** hosts `web/` as a static PWA (see `vercel.json`). It connects to a running laptop backend, or opens an exported `outputs/session.json` read-only. Keys and state never leave the laptop.
+- **Vercel:** https://hackathonplanner.vercel.app hosts `web/` as a static PWA (see `vercel.json`). It connects to a running laptop backend, or opens an exported `outputs/session.json` read-only. Keys and state never leave the laptop.
 
 Docs: `docs/TEST_DAY.md` (runbook) · `docs/TEAM_GUIDE.md` (how to defend each part) · `docs/TRACEABILITY.md` (brief -> code -> test).
