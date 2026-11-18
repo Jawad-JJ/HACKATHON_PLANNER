@@ -11,9 +11,8 @@ import json
 import os
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 
-from planforge.config import ROOT, model_config
+from planforge.config import ROOT, fallback_config, model_config
 from planforge.ingest import read_input
 from planforge.llm import LLMClient
 from planforge.pipeline import run
