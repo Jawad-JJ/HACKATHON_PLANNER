@@ -1,0 +1,10 @@
+# runtime state and outputs (never tracked -> git status stays clean after runs)
+state/
+outputs/
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+.vercel/
