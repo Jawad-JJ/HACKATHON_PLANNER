@@ -48,6 +48,17 @@ archived in `state/archive/`. A file with one message updates the current plan. 
 4. Prediction slip: **"Only reading makes a model call (1 call). Venue, schedule, food, judging, budget: none."**
 5. Upload `outputs/submission.txt`.
 
+## Live results (team laptop, 18 Nov, gemini-3.5-flash-lite)
+
+| Run | Calls | Tokens (as reported) | Time | Result |
+|---|---|---|---|---|
+| Sample pack | 1 `reading` | 1,043 in + 670 out = 1,713 | 2.3 s | VALID: 177 people, Hall A, standard box Rs 1,200, Rs 547,400 |
+| Printing 10,000 -> 15,000 | 1 `reading` | 677 | 1-16 s | VALID: replaced, total Rs 552,400 |
+| Caterer "100 boxes" | 1 `reading` | 675 | 1.1 s | REJECTED: below the 177 people who must be fed; plan stays VALID |
+
+Under load the API once answered `503 high demand`; the run retried on `gemini-3.1-flash-lite` and both calls
+appear in the trace.
+
 ## Tests
 
 ```powershell
