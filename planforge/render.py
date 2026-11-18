@@ -17,7 +17,8 @@ def plan_text(plan: dict, title="EVENT PLAN") -> str:
     L = ["=" * W, f"{title}  (version {plan.get('version')})  ->  {'VALID' if plan.get('valid') else 'NOT VALID'}", "=" * W]
     p, v, f, j, s, b = (plan[k] for k in ("people", "venue", "food", "judging", "schedule", "budget"))
     L.append(f"People on site: {p['on_site']}  = {p['students']} students + {p['staff'] or 0} staff + "
-             f"{p['judges']} judges" + (f" + {p['other']} other" if p.get("other") else ""))
+             + (f"{p['volunteers']} volunteers + " if p.get("volunteers") else "") + f"{p['judges']} judges"
+             + (f" + {p['other']} other" if p.get("other") else ""))
     L += ["", "[VENUE]"]
     if v["chosen"]:
         c = v["chosen"]

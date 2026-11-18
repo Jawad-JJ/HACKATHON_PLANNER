@@ -75,6 +75,7 @@ def build_plan(facts) -> dict:
     students, s_f = _count(ctx, "students")
     staff, st_f = _count(ctx, "staff")
     other_people, o_f = _count(ctx, "other")
+    volunteers, v_f = _count(ctx, "volunteers")
     if students is None:
         miss("judging", "number of students not stated")
     teams = None
@@ -145,9 +146,9 @@ def build_plan(facts) -> dict:
     # ------------------------------------------------------------------ people on site
     people = None
     if students is not None and judges_used is not None:
-        people = students + (staff or 0) + judges_used + (other_people or 0)
-    plan["people"] = {"students": students, "staff": staff, "judges": judges_used, "other": other_people,
-                      "on_site": people, "src": [_src(s_f), _src(st_f), _src(o_f)]}
+        people = students + (staff or 0) + (volunteers or 0) + judges_used + (other_people or 0)
+    plan["people"] = {"students": students, "staff": staff, "volunteers": volunteers, "judges": judges_used,
+                      "other": other_people, "on_site": people, "src": [_src(s_f), _src(st_f), _src(v_f), _src(o_f)]}
     if staff is None:
         warn("food", "staff count not stated - counted as 0")
 
@@ -160,7 +161,7 @@ def build_plan(facts) -> dict:
         if o.get("area") == "food" and o.get("quantity") is not None and qty is not None:
             if o["quantity"] < qty:
                 fail("food", f"order of {o['quantity']} boxes is below the {qty} people who must be fed "
-                             f"({students} students + {staff or 0} staff + {judges_used} judges)")
+                             f"({students} students + {staff or 0} staff + {volunteers or 0} volunteers + {judges_used} judges)")
             qty = max(qty, int(o["quantity"]))
 
     # ------------------------------------------------------------------ candidates

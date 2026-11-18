@@ -14,7 +14,7 @@ ROLE: organizer (dean/admin who approves the event) | finance | venue | caterer 
 date: as written (e.g. "9 Nov"); omit if none.
 FACT = {"kind":KIND,<fields>,"status":"proposed"|"tentative"}  (omit status when confirmed)
 Use exactly these KIND names. KIND {fields}:
-headcount {"role":"students|staff|judges|other","count"}  students=participants; staff=volunteers/organisers on duty
+headcount {"role":"students|staff|volunteers|judges|other","count"}  students=participants; volunteers are extra people, not staff
 team_size {"value"} | teams {"count"} | duration {"minutes"} | start_time {"time":"HH:MM"}
 budget_cap {"amount"}
 venue_option {"name","capacity","cost","cost_per_hour","features":[str],"available":bool}
@@ -133,7 +133,7 @@ ROLES = {"organizer", "finance", "venue", "caterer", "judging", "judge", "studen
 
 
 HEAD_ROLES = {"student": "students", "participant": "students", "attendee": "students", "hacker": "students",
-              "staff": "staff", "volunteer": "staff", "organis": "staff", "organiz": "staff", "faculty": "staff",
+              "staff": "staff", "volunteer": "volunteers", "organis": "staff", "organiz": "staff", "faculty": "staff",
               "judge": "judges", "jury": "judges", "evaluator": "judges", "mentor": "other", "guest": "other"}
 
 

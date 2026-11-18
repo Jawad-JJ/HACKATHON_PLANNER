@@ -90,7 +90,7 @@ class HeadcountRoles(unittest.TestCase):
     def test_role_synonyms(self):
         roles = [normalize_fact({"kind": "headcount", "role": r, "count": 5})["role"]
                  for r in ("participants", "Volunteers", "jury members", "students")]
-        self.assertEqual(roles, ["students", "staff", "judges", "students"])
+        self.assertEqual(roles, ["students", "volunteers", "judges", "students"])
 
 
 class Words(unittest.TestCase):
