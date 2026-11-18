@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlanForge AI - Hackathon Planner</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><img src="icon.svg" alt="" width="28" height="28"><div><b>PlanForge AI</b><small>Mind to Machine planner</small></div></div>
+  <div id="status" class="status">loading...</div>
+</header>
+<nav id="tabs" class="tabs" role="tablist">
+  <button data-tab="overview" class="on">Overview</button>
+  <button data-tab="plan">Plan</button>
+  <button data-tab="messages">Messages</button>
+  <button data-tab="rejected">Rejected</button>
+  <button data-tab="trace">Trace</button>
+  <button data-tab="update">New message</button>
+  <button data-tab="exports">Exports</button>
+</nav>
+<main id="view" tabindex="-1"></main>
+<footer class="foot">Model reads the messages once per run; every figure below is computed in plain code and links to its source message.</footer>
+<script src="app.js"></script>
+</body>
+</html>
