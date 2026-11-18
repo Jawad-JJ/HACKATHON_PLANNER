@@ -10,7 +10,7 @@ import time
 from planforge.config import fallback_config, model_config
 from planforge.ingest import read_input
 from planforge.llm import LLMClient
-from planforge.pipeline import run
+from planforge.pipeline import PREDICTION, run
 from planforge.render import export, plan_text, trace_text
 
 try:
@@ -28,6 +28,8 @@ def main(argv) -> int:
         print(f"Model not configured: {cfg.problem()}. Copy .env.example to .env and fill it in.")
         return 78
     raw = read_input(argv[1])
+    print(f"PREDICTION (saved before any model call): areas making model calls = {PREDICTION['tags']} "
+          f"({PREDICTION['calls']} call). Venue, schedule, food, judging, budget: none.\n")
     t0 = time.monotonic()
     result = run(raw, LLMClient(cfg, fallback=fallback_config()))
     sess, r = result["session"], result["run"]
