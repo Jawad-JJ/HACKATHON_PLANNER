@@ -87,7 +87,7 @@ class Handler(SimpleHTTPRequestHandler):
         inbox.mkdir(parents=True, exist_ok=True)
         path = inbox / f"{time.strftime('%Y%m%d-%H%M%S')}.txt"
         path.write_text(text, encoding="utf-8")            # same as giving main.py a file
-        result = run(read_input(path), LLMClient(cfg))
+        result = run(read_input(path), LLMClient(cfg, fallback=fallback_config()))
         export(result["session"])
         payload = state_payload()
         payload.update(ok=result["ok"], error=result["error"], run=result["run"])

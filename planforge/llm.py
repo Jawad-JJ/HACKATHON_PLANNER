@@ -17,7 +17,8 @@ class CallBudgetExceeded(RuntimeError):
 
 
 class LLMClient:
-    def __init__(self, cfg: ModelConfig, transport=None):
+    def __init__(self, cfg: ModelConfig, transport=None, fallback: ModelConfig = None):
+        self.primary, self.fallback = cfg, fallback
         self.cfg = cfg
         self.transport = transport or self._http   # tests inject a scripted transport
         self.records: list = []
@@ -44,7 +45,10 @@ class LLMClient:
 
     # ------------------------------------------------------------------ call
     def chat(self, tag: str, system: str, user: str, json_mode: bool = True) -> CallRecord:
-        if len([r for r in self.records if r.run_id == self.run_id]) >= self.max_calls:
+        mine = [r for r in self.records if r.run_id == self.run_id]
+        # after a failed call in this run, switch to the fallback model (if configured); traced under its own name
+        self.cfg = self.fallback if (self.fallback and mine and mine[-1].status != "ok") else self.primary
+        if len(mine) >= self.max_calls:
             raise CallBudgetExceeded(f"call limit of {self.max_calls} reached for this run")
         timeout = self.cfg.timeout
         if self.deadline is not None:

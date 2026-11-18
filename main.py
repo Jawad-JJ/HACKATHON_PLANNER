@@ -7,7 +7,7 @@ First run (or a file with many messages) starts a new plan; a file with one new 
 import sys
 import time
 
-from planforge.config import model_config
+from planforge.config import fallback_config, model_config
 from planforge.ingest import read_input
 from planforge.llm import LLMClient
 from planforge.pipeline import run
@@ -29,7 +29,7 @@ def main(argv) -> int:
         return 78
     raw = read_input(argv[1])
     t0 = time.monotonic()
-    result = run(raw, LLMClient(cfg))
+    result = run(raw, LLMClient(cfg, fallback=fallback_config()))
     sess, r = result["session"], result["run"]
     plan = sess.get("plan")
     if plan:

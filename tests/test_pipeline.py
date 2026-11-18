@@ -98,3 +98,14 @@ class Honesty(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Fallback(unittest.TestCase):
+    def test_fallback_model_used_after_failure_and_traced(self):
+        from planforge.config import ModelConfig
+        state = Path(tempfile.mkdtemp())
+        client = scripted("ERROR", "sample_pack_extraction.json")
+        client.fallback = ModelConfig("test", "", "", "scripted-fallback", 5, True)
+        r = run(read_input(SAMPLES / "sample_pack.txt"), client, state)
+        self.assertTrue(r["ok"])
+        self.assertEqual([c["status"] for c in r["session"]["calls"]], ["error", "ok"])

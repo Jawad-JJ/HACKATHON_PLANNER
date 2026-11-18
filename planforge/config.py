@@ -47,17 +47,23 @@ class ModelConfig:
         return ""
 
 
-def model_config() -> ModelConfig:
+def model_config(prefix: str = "LLM_") -> ModelConfig:
+    """prefix LLM_ = primary model; LLM_FALLBACK_ = optional second model used only if the first call fails."""
     load_dotenv()
-    provider = os.getenv("LLM_PROVIDER", "groq").strip().lower()
+    provider = os.getenv(prefix + "PROVIDER", "groq" if prefix == "LLM_" else "").strip().lower()
     base, key_var = PRESETS.get(provider, ("", ""))
-    base_url = os.getenv("LLM_BASE_URL", "").strip() or base
-    api_key = os.getenv("LLM_API_KEY", "").strip() or (os.getenv(key_var, "").strip() if key_var else "")
+    base_url = os.getenv(prefix + "BASE_URL", "").strip() or base
+    api_key = os.getenv(prefix + "API_KEY", "").strip() or (os.getenv(key_var, "").strip() if key_var else "")
     return ModelConfig(
         provider=provider,
         base_url=base_url.rstrip("/"),
         api_key=api_key,
-        model=os.getenv("LLM_MODEL", "").strip(),
+        model=os.getenv(prefix + "MODEL", "").strip(),
         timeout=float(os.getenv("LLM_TIMEOUT", "40")),
         json_mode=os.getenv("LLM_JSON_MODE", "1").strip() != "0",
     )
+
+
+def fallback_config():
+    cfg = model_config("LLM_FALLBACK_")
+    return None if (not cfg.provider or cfg.problem()) else cfg
