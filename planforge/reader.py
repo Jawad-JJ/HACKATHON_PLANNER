@@ -14,18 +14,19 @@ ROLE: organizer (dean/admin who approves the event) | finance | venue | caterer 
 date: as written (e.g. "9 Nov"); omit if none.
 FACT = {"kind":KIND,<fields>,"status":"proposed"|"tentative"}  (omit status when confirmed)
 Use exactly these KIND names. KIND {fields}:
-headcount {"role":"students|staff|volunteers|judges|other","count"}  students=participants; volunteers are extra people, not staff
+headcount {"role":"students|staff|volunteers|judges|other","count"}  TOTAL for the whole event only; students=participants; volunteers are extra people, not staff. A subset of people already counted (e.g. "two participants use wheelchairs") is NOT a headcount: use feature_requirement instead
 team_size {"value"} | teams {"count"} | duration {"minutes"} | start_time {"time":"HH:MM"}
 budget_cap {"amount"}
 venue_option {"name","capacity","cost","cost_per_hour","features":[str],"available":bool}
-food_option {"name","price_per_head","fixed_cost","features":[str],"available":bool}  fixed_cost = delivery/setup charge
+food_option {"name","price_per_head","fixed_cost","service_pct","features":[str],"available":bool}  fixed_cost = delivery/setup charge; service_pct = % service charge on the food total (e.g. 10)
 committed_cost {"item","amount"}  already ordered/billed; a corrected bill keeps the same item name
 optional_cost {"item","amount"}  a request or quote not yet approved
 judge_terms {"honorarium","minutes_per_team","max_teams_per_judge"}
 judge_change {"count_change","delay_minutes"}  judges joining(+)/dropping(-)/late
 schedule_item {"name","minutes","at":"HH:MM"|null}  required break/session
 requirement {"area":AREA,"metric":METRIC,"op":">="|"<="|"==","value"}
-feature_requirement {"area":"venue"|"food","feature"}  e.g. venue must have X, food must be Y
+feature_requirement {"area":"venue"|"food","feature"}  e.g. venue must have X, food must be Y; wheelchair/step-free needs -> feature "step-free"
+venue features: short tags; ground floor with ramp/lift access -> include "step-free"
 order_change {"area":AREA,"item","quantity"}  someone says they changed our order
 other {"area":AREA,"text"}  any rule not expressible above
 AREA: venue|schedule|food|judging|budget
@@ -156,7 +157,7 @@ def norm_role(r) -> str:
 
 
 _NUMERIC = {"count", "value", "minutes", "amount", "capacity", "cost", "cost_per_hour", "fixed_cost",
-            "price_per_head", "honorarium",
+            "price_per_head", "honorarium", "service_pct",
             "minutes_per_team", "max_teams_per_judge", "count_change", "delay_minutes", "quantity"}
 
 

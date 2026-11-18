@@ -42,6 +42,9 @@ def plan_text(plan: dict, title="EVENT PLAN") -> str:
         L.append(f"  {j['teams']} teams, {j['judges_used']} of {j['judges_available']} judges used, "
                  f"{j['rounds']} rounds x {j['minutes_per_team']} min = {j['judging_minutes']} min, "
                  f"max {j['max_load']} teams per judge (limit {j['max_teams_per_judge']})")
+        jl = [x for x in b["lines"] if str(x.get("item", "")).startswith("Judges:")]
+        if jl:
+            L.append(f"  Judges cost: {jl[0]['item'].split(': ', 1)[1]} = {rs(jl[0]['amount'])}")
         by_judge = {}
         for a in j["assignment"]:
             by_judge.setdefault(a["judge"], []).append(f"T{a['team']}")
@@ -50,6 +53,9 @@ def plan_text(plan: dict, title="EVENT PLAN") -> str:
     for line in b["lines"]:
         L.append(f"  {rs(line['amount']):>14}  {line['item']}  ({line.get('src')})")
     L.append(f"  {rs(b['total']):>14}  TOTAL   cap {rs(b['cap'])}   remaining {rs(b['remaining'])}")
+    if b.get("total") is not None and b.get("cap") is not None:
+        L.append(f"  Budget: {rs(b['total'])} of {rs(b['cap'])} -> "
+                 + ("FITS" if b["total"] <= b["cap"] else f"OVER by {rs(b['total'] - b['cap'])}"))
     for o in b["not_included"]:
         L.append(f"  not included: {o['item']} {rs(o.get('amount'))} - not approved; {o['note']} ({o['src']})")
     if plan.get("requirements"):
@@ -123,6 +129,25 @@ def trace_text(sess: dict, run_ids=None) -> str:
     return "\n".join(L) + "\n"
 
 
+PURPOSE = {"reading": "reading the messages", "venue": "venue", "schedule": "schedule", "food": "food",
+           "judging": "judging", "budget": "budget"}
+
+
+def trace_summary(sess: dict, run_ids=None) -> str:
+    """One line per AI call plus a total: call number, model, what it was for, tokens."""
+    calls = [c for c in sess["calls"] if run_ids is None or c["run_id"] in run_ids]
+    tok = lambda v: "unreported" if v is None else f"{v:,}"  # noqa: E731
+    L = ["TRACE (one line per AI call)"]
+    for c in calls:
+        L.append(f"Call #{c['number']} | model: {c['model']} | for: {PURPOSE.get(c['tag'], c['tag'])} | "
+                 f"tokens: {tok(c['input_tokens'])} in + {tok(c['output_tokens'])} out = {tok(c['total_tokens'])}"
+                 + ("" if c["status"] == "ok" else f" | {c['status']}"))
+    t = token_totals(calls)
+    L.append(f"TOTAL: {t['calls']} call(s), {t['input']:,} in + {t['output']:,} out = {t['total']:,} tokens"
+             + (f" ({t['unreported_calls']} call(s) did not report tokens)" if t["unreported_calls"] else ""))
+    return "\n".join(L) + "\n"
+
+
 def rejected_text(sess, run_ids=None) -> str:
     rows = [m for m in sess["messages"] if m["status"] != "accepted" and (run_ids is None or m["run_id"] in run_ids)]
     if not rows:
@@ -146,8 +171,9 @@ def submission_text(sess: dict) -> str:
     """Plan + rejected messages + full trace with totals: the file to upload on the form."""
     rej = "\n".join(f"- {r['message']} {r['sender']} ({r['date']}): {r['status']}\n  \"{r['text']}\"\n  "
                     + "\n  ".join(r["reasons"]) for r in rejected(sess))
-    return plan_text(sess.get("plan")) + "\nREJECTED / OUTDATED / IGNORED MESSAGES\n" + (rej or "none") \
-        + "\n\n" + trace_text(sess)
+    return plan_text(sess.get("plan")) + "\n" + trace_summary(sess) \
+        + "\nREJECTED / OUTDATED / IGNORED MESSAGES\n" + (rej or "none") \
+        + "\n\nFULL CALL DETAILS (inputs and outputs)\n" + trace_text(sess)
 
 
 def export(sess: dict, out_dir=OUT_DIR) -> list:
@@ -158,6 +184,7 @@ def export(sess: dict, out_dir=OUT_DIR) -> list:
         "full_trace.json": json.dumps({"runs": sess["runs"], "calls": sess["calls"],
                                        "totals": token_totals(sess["calls"])}, indent=1, ensure_ascii=False),
         "full_trace.txt": trace_text(sess),
+        "trace.txt": trace_summary(sess),
         "rejections.json": json.dumps(rejected(sess), indent=1, ensure_ascii=False),
         "updates.json": json.dumps([{k: r.get(k) for k in ("run_id", "mode", "input", "prediction", "actual_tags",
                                                          "prediction_matched", "plan_valid", "seconds", "status")}

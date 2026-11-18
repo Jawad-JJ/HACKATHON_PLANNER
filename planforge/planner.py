@@ -58,8 +58,19 @@ def _features(ctx, area):
     return [norm_name(r.get("feature")) for r in ctx.features if r.get("area") == area and r.get("feature")]
 
 
+ACCESS_WORDS = ("step-free", "step free", "stepfree", "wheelchair", "accessib", "ramp")
+
+
+def food_cost_of(f, qty):
+    base = f["price_per_head"] * qty
+    pct = f.get("service_pct") or 0
+    return int(round(base * (1 + pct / 100))) + int(f.get("fixed_cost") or 0)
+
+
 def _has_feature(option, feat):
-    have = " ".join(option.get("features") or []) + " " + norm_name(option.get("name"))
+    have = (" ".join(option.get("features") or []) + " " + norm_name(option.get("name"))).lower()
+    if any(a in feat.lower() for a in ACCESS_WORDS):
+        return any(a in have for a in ACCESS_WORDS + ("lift", "elevator"))
     return all(w in have for w in feat.split()) or feat in have
 
 
@@ -233,7 +244,7 @@ def build_plan(facts) -> dict:
         combos = []
         for fi, f in enumerate(foods_ok):
             for v in venues_ok:
-                food_cost = f["price_per_head"] * qty + int(f.get("fixed_cost") or 0)
+                food_cost = food_cost_of(f, qty)
                 total = v["cost"] + food_cost + fixed
                 ok = cap is None or total <= cap
                 for r in _reqs(ctx, "budget.total") + _reqs(ctx, "food.cost"):
@@ -257,10 +268,10 @@ def build_plan(facts) -> dict:
                                      [{"name": u["name"], "why_not": "not available"} for u in ctx.unavailable
                                       if u["kind"] == "venue_option"]}
     plan["food"] = {"chosen": food and {"name": food["name"], "price_per_head": food["price_per_head"],
-                                        "fixed_cost": int(food.get("fixed_cost") or 0), "src": food["id"]},
+                                        "fixed_cost": int(food.get("fixed_cost") or 0), "service_pct": food.get("service_pct") or 0, "src": food["id"]},
                     "quantity": qty, "cost": food_cost, "required_features": f_feats,
                     "alternatives": [{"name": f["name"], "price_per_head": f["price_per_head"],
-                                      "would_cost": f["price_per_head"] * qty + int(f.get("fixed_cost") or 0) if qty else None}
+                                      "would_cost": food_cost_of(f, qty) if qty else None}
                                      for f in foods_ok if f is not food] +
                                     [{"name": n["name"], "why_not": ", ".join(n["why"])} for n in food_notes],
                     "rule": "keep the menu that was quoted first (at its latest price) unless the budget forces a cheaper one"}
@@ -274,6 +285,7 @@ def build_plan(facts) -> dict:
         lines.append({"item": f"Venue: {venue['name']}", "amount": venue["cost"], "src": venue["id"]})
     if food:
         lines.append({"item": f"Food: {qty} x {food['name']} @ Rs {food['price_per_head']:,}"
+                      + (f" + {food['service_pct']}% service charge" if food.get("service_pct") else "")
                       + (f" + Rs {int(food['fixed_cost']):,} fixed charge" if food.get("fixed_cost") else ""),
                       "amount": food_cost, "src": food["id"]})
     if judges_cost is not None:
