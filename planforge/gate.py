@@ -86,7 +86,10 @@ def admit(facts: list, msg: dict, new_facts: list) -> list:
     for c in accepted:
         c["state"] = "active"
         facts.append(c)
-        say(c, "accepted", "applied")
+        if c["kind"] == "optional_cost" and not c.get("approved"):
+            say(c, "info", "request/quote recorded - not approved, so not in the budget")
+        else:
+            say(c, "accepted", "applied")
     ledger.mark_superseded(facts)
     for c in accepted:  # report what each accepted fact replaced
         for g in facts:

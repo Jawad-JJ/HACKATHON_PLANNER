@@ -177,6 +177,25 @@ def build_plan(facts) -> dict:
     elif not foods_ok:
         fail("food", "no food option meets the requirements")
 
+    for o in ctx.orders:
+        target = norm_name(o.get("item"))
+        if o.get("area") == "venue" and target:
+            hit = [v for v in ctx.venues if norm_name(v["name"]) in target or target in norm_name(v["name"])]
+            if hit:
+                bad = [n for n in venue_notes if n["name"] == hit[0]["name"]]
+                if bad:
+                    fail("venue", f"moving to {hit[0]['name']} breaks the rules: {', '.join(bad[0]['why'])}")
+                else:
+                    venues_ok = [hit[0]]
+        if o.get("area") == "food" and target and o.get("quantity") is None:
+            hit = [f for f in ctx.foods if norm_name(f["name"]) in target or target in norm_name(f["name"])]
+            if hit:
+                bad = [n for n in food_notes if n["name"] == hit[0]["name"]]
+                if bad:
+                    fail("food", f"switching to {hit[0]['name']} breaks the rules: {', '.join(bad[0]['why'])}")
+                else:
+                    foods_ok = [hit[0]]
+
     # ------------------------------------------------------------------ budget pieces
     honor = ctx.terms.get("honorarium")
     judges_cost = judges_used * honor if (judges_used is not None and honor is not None) else None
@@ -307,12 +326,24 @@ def _schedule(ctx, duration, mandatory, judging_min, fail, warn):
         if off < 0 or off + mins > duration:
             fail("schedule", f"'{it['name']}' at {it['at']} falls outside the event")
         slots.append({"start": off, "end": off + mins, "name": it["name"], "type": "required", "src": it["id"]})
-    if j:
-        slots.append({"start": duration - j, "end": duration, "name": "Judging", "type": "judging"})
     slots.sort(key=lambda s: s["start"])
     for a, b in zip(slots, slots[1:]):
         if b["start"] < a["end"]:
             fail("schedule", f"'{a['name']}' overlaps '{b['name']}'")
+    rounds = ctx.terms.get("minutes_per_team") and j // ctx.terms["minutes_per_team"]
+    if j and rounds:
+        mpt, end, placed = ctx.terms["minutes_per_team"], duration, 0
+        while placed < rounds and end - mpt >= 0:
+            clash = [x for x in slots if x["start"] < end and x["end"] > end - mpt]
+            if clash:
+                end = min(x["start"] for x in clash)
+                continue
+            slots.append({"start": end - mpt, "end": end, "name": f"Judging round {rounds - placed}", "type": "judging"})
+            end -= mpt
+            placed += 1
+        if placed < rounds:
+            fail("schedule", f"only {placed} of {rounds} judging rounds fit in the event")
+        slots.sort(key=lambda s: s["start"])
     # gaps -> place floating mandatory items in the middle of the largest gap, rest is building time
     for it in floating:
         gaps = _gaps(slots, duration)
@@ -337,7 +368,8 @@ def _schedule(ctx, duration, mandatory, judging_min, fail, warn):
     if covered != duration:
         fail("schedule", f"slots cover {covered} min but the event is {duration} min")
     out["slots"] = slots
-    out["judging_start"] = duration - j if j else None
+    js = [x["start"] for x in slots if x["type"] == "judging"]
+    out["judging_start"] = min(js) if js else None
     out["build_minutes"] = sum(s["end"] - s["start"] for s in slots if s["type"] == "build")
     if out["build_minutes"] == 0:
         warn("schedule", "no building time left")

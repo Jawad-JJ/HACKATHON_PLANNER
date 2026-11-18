@@ -111,6 +111,10 @@ def run(raw: RawInput, client: LLMClient, state_dir=STATE_DIR) -> dict:
         sess["messages"].append(msg)
         run_rec["decisions"] += dec
     sess["messages"].sort(key=lambda m: m["order"])
+    for m in sess["messages"]:          # messages whose every fact was replaced later are out of date
+        mf = [f for f in sess["facts"] if f["msg"] == m["id"]]
+        if mf and all(f["state"] == "superseded" for f in mf) and m["status"] == "accepted":
+            m["status"], m["reasons"] = "outdated", [f["reason"] for f in mf]
     unassigned = sorted(set(range(1, len(raw.blocks) + 1)) - {b for m, _ in staged for b in m["blocks"]})
     run_rec["unassigned_blocks"] = [{"block": b, "text": raw.blocks[b - 1]} for b in unassigned]
 
