@@ -13,8 +13,8 @@ Return only JSON: {"messages":[{"blocks":[int],"sender":str,"role":ROLE,"date":s
 ROLE: organizer (dean/admin who approves the event) | finance | venue | caterer | judging (coordinator) | judge | student | other
 date: as written (e.g. "9 Nov") or null.
 FACT = {"kind":KIND, <fields>, "status":"confirmed|proposed|tentative", "quote":"short exact phrase"}
-KIND {fields}:
-headcount {"role":"students|staff|judges|other","count"}
+Use exactly these KIND names. KIND {fields}:
+headcount {"role":"students|staff|judges|other","count"}  students=participants; staff=volunteers/organisers on duty
 team_size {"value"} | teams {"count"} | duration {"minutes"} | start_time {"time":"HH:MM"}
 budget_cap {"amount"}
 venue_option {"name","capacity","cost","cost_per_hour","features":[str],"available":bool}
@@ -121,6 +121,19 @@ FIELD_ALIASES = {"seats": "capacity", "rent": "cost", "price": "price_per_head",
 ROLES = {"organizer", "finance", "venue", "caterer", "judging", "judge", "student", "other"}
 
 
+HEAD_ROLES = {"student": "students", "participant": "students", "attendee": "students", "hacker": "students",
+              "staff": "staff", "volunteer": "staff", "organis": "staff", "organiz": "staff", "faculty": "staff",
+              "judge": "judges", "jury": "judges", "evaluator": "judges", "mentor": "other", "guest": "other"}
+
+
+def norm_head_role(r) -> str:
+    r = str(r or "").lower()
+    for k, v in HEAD_ROLES.items():
+        if k in r:
+            return v
+    return "other"
+
+
 def norm_role(r) -> str:
     r = str(r or "other").strip().lower()
     if r in ROLES:
@@ -159,6 +172,8 @@ def normalize_fact(f: dict):
             out[k] = v.strip() if isinstance(v, str) else v
     if out["kind"] == "requirement":
         out["value"] = num(f.get("value"))
+    if out["kind"] == "headcount":
+        out["role"] = norm_head_role(f.get("role"))
     if out.get("area") and out["area"] not in AREAS:
         out["area"] = str(out["area"]).lower()
     if out["status"] not in ("confirmed", "proposed", "tentative"):

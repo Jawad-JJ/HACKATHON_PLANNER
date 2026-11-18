@@ -315,8 +315,8 @@ def build_plan(facts) -> dict:
 
     # ------------------------------------------------------------------ risks (tentative info)
     plan["risks"] = []
-    for f in [x for x in facts if x.get("info_only")]:
-        if f["kind"] == "judge_change" and f.get("delay_minutes"):
+    for f in [x for x in facts if x["kind"] == "judge_change" and x.get("delay_minutes")]:
+        if True:
             js = plan["schedule"].get("judging_start")
             spare = (judges_avail - judges_used) if (judges_avail is not None and judges_used) else 0
             plan["risks"].append({"src": f["id"], "text": f"a judge may be {f['delay_minutes']} min late: judging starts at "

@@ -84,3 +84,10 @@ class TraceHonesty(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HeadcountRoles(unittest.TestCase):
+    def test_role_synonyms(self):
+        roles = [normalize_fact({"kind": "headcount", "role": r, "count": 5})["role"]
+                 for r in ("participants", "Volunteers", "jury members", "students")]
+        self.assertEqual(roles, ["students", "staff", "judges", "students"])
