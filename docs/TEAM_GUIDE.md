@@ -54,6 +54,13 @@ python main.py <file>
 - **How is the sample pack not hard-coded?** `planforge/` contains no pack numbers or messages; facts come only from the input file. Tests use separate fixtures and a self-written pack with different numbers.
 - **Prediction slip?** Always: *"Only `reading` will make a model call (1 call). Venue, schedule, food, judging and budget make no model calls."* The run saves the prediction before calling and prints `MATCHED`.
 
+## Evidence from our live runs (use it when judges ask)
+
+- Sample pack: **1 call, 1,713 tokens, 2.3 s**, plan VALID. Printing update: 1 call, 677 tokens. Wrong caterer: 1 call, 675 tokens, rejected.
+- First version used 2,960 tokens; we cut output tokens by ~65% by asking for minified JSON without defaults (same facts).
+- The model once wrote `duration {"value": 240}` instead of `minutes`; the reader now maps generic field names. That real output is a regression test (`tests/test_recorded.py`).
+- Under load Gemini answered `503 high demand`; the run retried on the backup model and **both calls are in the trace**, with the failed one marked `unreported`.
+
 ## Who owns what (everyone must be able to explain all of it)
 
 - **Member 1, language & evidence:** ingest, reader prompt, ledger chronology, sender lanes, outdated messages.
