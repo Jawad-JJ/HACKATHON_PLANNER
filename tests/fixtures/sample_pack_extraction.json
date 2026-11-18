@@ -1,0 +1,30 @@
+{"messages":[
+ {"blocks":[1],"sender":"Dean's office","role":"organizer","date":"9 Nov","relevant":true,"facts":[
+  {"kind":"duration","minutes":240,"quote":"4-hour hackathon"},
+  {"kind":"headcount","role":"students","count":150,"quote":"150 students"},
+  {"kind":"team_size","value":3,"quote":"teams of 3"},
+  {"kind":"budget_cap","amount":650000,"quote":"Rs 650,000, all in"},
+  {"kind":"headcount","role":"staff","count":10,"quote":"Ten staff"},
+  {"kind":"schedule_item","name":"Prayer break","minutes":15,"at":null,"quote":"15-minute prayer break"}]},
+ {"blocks":[2],"sender":"Margalla Event Halls","role":"venue","date":"3 Nov","relevant":true,"facts":[
+  {"kind":"venue_option","name":"Room D","capacity":80,"cost":40000,"features":[],"quote":"Room D seats 80"},
+  {"kind":"venue_option","name":"Hall A","capacity":200,"cost":120000,"features":[],"quote":"Hall A seats 200"},
+  {"kind":"venue_option","name":"Hall B","capacity":200,"cost":150000,"features":["standby generator"],"quote":"Hall B seats 200"},
+  {"kind":"venue_option","name":"Hall C","capacity":300,"cost":220000,"features":["standby generator"],"quote":"Hall C seats 300"}]},
+ {"blocks":[3],"sender":"Caterer","role":"caterer","date":"20 Oct","relevant":true,"facts":[
+  {"kind":"food_option","name":"Standard lunch box","price_per_head":1000,"quote":"Rs 1,000 per head"}]},
+ {"blocks":[4],"sender":"Caterer","role":"caterer","date":"12 Nov","relevant":true,"facts":[
+  {"kind":"food_option","name":"Standard lunch box","price_per_head":1200,"quote":"ab Rs 1,200 per head hoga"},
+  {"kind":"food_option","name":"Basic lunch box","price_per_head":800,"quote":"basic wala Rs 800"}]},
+ {"blocks":[5],"sender":"Judging coordinator","role":"judging","date":"11 Nov","relevant":true,"facts":[
+  {"kind":"headcount","role":"judges","count":20,"quote":"20 judges have confirmed"},
+  {"kind":"judge_terms","honorarium":5000,"minutes_per_team":15,"max_teams_per_judge":3,"quote":"Rs 5,000 each"}]},
+ {"blocks":[6],"sender":"Finance","role":"finance","date":"10 Nov","relevant":true,"facts":[
+  {"kind":"committed_cost","item":"prizes","amount":100000,"quote":"prizes Rs 100,000"},
+  {"kind":"committed_cost","item":"backup internet","amount":20000,"quote":"backup internet Rs 20,000"},
+  {"kind":"committed_cost","item":"printing","amount":10000,"quote":"printing Rs 10,000"}]},
+ {"blocks":[7],"sender":"Student society","role":"student","date":"13 Nov","relevant":true,"facts":[
+  {"kind":"optional_cost","item":"DJ for closing","amount":50000,"status":"proposed","quote":"The quote is Rs 50,000"}]},
+ {"blocks":[8],"sender":"A judge","role":"judge","date":"14 Nov","relevant":true,"facts":[
+  {"kind":"judge_change","count_change":0,"delay_minutes":10,"status":"tentative","quote":"I may be 10 minutes late"}]}
+]}

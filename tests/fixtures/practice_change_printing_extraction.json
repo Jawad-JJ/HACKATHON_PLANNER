@@ -1,0 +1,2 @@
+{"messages":[{"blocks":[1],"sender":"Finance","role":"finance","date":null,"relevant":true,"facts":[
+ {"kind":"committed_cost","item":"printing bill","amount":15000,"quote":"came in at Rs 15,000, not Rs 10,000"}]}]}
