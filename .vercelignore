@@ -1,5 +1,4 @@
-# Vercel hosts only the dashboard (web/). The planner runs on the laptop: python main.py / python serve.py
-planforge/
+# Vercel hosts the dashboard (web/) and one function (api/run.py) that imports planforge/.
 tests/
 scripts/
 samples/

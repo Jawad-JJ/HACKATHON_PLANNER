@@ -18,6 +18,18 @@ async function boot() {
       if (r.ok) { API = base; S = await r.json(); break; }
     } catch { /* try next */ }
   }
+  if (!S) {
+    try {
+      const r = await fetch("/api/run", { cache: "no-store" });
+      const h = r.ok ? await r.json() : null;
+      if (h && "configured" in h) {
+        let sess = null;
+        try { sess = JSON.parse(store.get("pf_session") || "null"); } catch { sess = null; }
+        S = { mode: "cloud", model: h.model, configured: h.configured, problem: h.problem, session: sess };
+        if (!sess) TAB = "update";
+      }
+    } catch { /* no cloud function: viewer mode */ }
+  }
   if (!S) S = { mode: "viewer", session: null, totals: null };
   render();
 }
@@ -26,19 +38,22 @@ function setStatus() {
   const sess = S.session, plan = sess && sess.plan;
   const runs = (sess && sess.runs) || [];
   const last = runs[runs.length - 1];
-  $("#status").innerHTML = S.mode === "viewer" && !sess ? "viewer mode - connect a backend or open a session file"
-    : `${S.mode === "live" ? "live backend" + (API ? " " + esc(API) : "") : "viewer (read-only)"} · model ${esc(S.model || (sess && sess.calls && sess.calls[0] && sess.calls[0].model) || "-")}`
+  $("#status").innerHTML = S.mode === "cloud" && !sess ? `cloud backend · model ${esc(S.model || "-")} · upload a message pack to start`
+    : S.mode === "viewer" && !sess ? "viewer mode - connect a backend or open a session file"
+    : `${S.mode === "live" ? "live backend" + (API ? " " + esc(API) : "") : S.mode === "cloud" ? "cloud backend" : "viewer (read-only)"} · model ${esc(S.model || (sess && sess.calls && sess.calls[0] && sess.calls[0].model) || "-")}`
       + (last ? ` · run ${last.run_id} ${esc(last.mode)} ${last.seconds ?? "?"} s` : "")
       + (plan ? ` · ${plan.valid ? "plan VALID" : "plan NOT valid"}` : "");
 }
 
 function render() {
   setStatus();
+  if ((!S.session || !S.session.plan) && S.mode === "cloud" && !["update", "exports"].includes(TAB)) TAB = "update";
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === TAB));
   const sess = S.session;
   const needData = !["update", "exports"].includes(TAB);
+  if ((!sess || !sess.plan) && S.mode === "cloud" && needData) TAB = "update";
   if (!sess || !sess.plan) {
-    $("#view").innerHTML = needData ? connectCard("No plan yet. Run a pack with python main.py <file>, or connect/open one below.") : VIEWS[TAB](sess);
+    $("#view").innerHTML = needData && S.mode !== "cloud" ? connectCard("No plan yet. Run a pack with python main.py <file>, or connect/open one below.") : VIEWS[TAB](sess);
     wire();
     return wireConnect();
   }
@@ -130,6 +145,18 @@ const VIEWS = {
   },
 
   update(s) {
+    if (S.mode === "cloud") {
+      return `<div class="card"><h3>Upload messages</h3>
+      <p class="mute">Choose the message pack <b>.txt</b> first, then each new message as it arrives (or paste it). Every file goes through the same pipeline as <code>python main.py &lt;file&gt;</code>: one model call to read it, everything else checked in code. Your plan is kept in this browser.</p>
+      ${S.configured ? "" : `<p>${pill("error")} Server model not configured: ${esc(S.problem || "")}</p>`}
+      <div class="row"><input type="file" id="files" accept=".txt,text/plain" multiple></div>
+      <p class="mute" style="margin:10px 0 4px">or paste one message:</p>
+      <textarea id="msg" placeholder="Paste the new message exactly as received"></textarea>
+      <div class="row" style="margin-top:10px"><button class="btn" id="send">Run</button>
+      <button class="btn sec" id="reset">Start a new plan</button>
+      <span id="sendinfo" class="mute">Prediction for every run: only the reading area makes a model call (1 call).</span></div></div>
+      <div id="result"></div>`;
+    }
     const live = S.mode === "live";
     return `<div class="card"><h3>Process a new message</h3>
       <p class="mute">Runs the same pipeline as <code>python main.py &lt;file&gt;</code>: the text is saved as a file, read by the model once, then checked in code.</p>
@@ -142,6 +169,11 @@ const VIEWS = {
 
   exports(s) {
     const files = ["submission.txt", "latest_plan.txt", "full_trace.txt", "latest_plan.json", "full_trace.json", "rejections.json", "updates.json", "session.json"];
+    if (S.mode === "cloud") {
+      return `<div class="card"><h3>Exports</h3><p class="mute">Files for the submission form, built from the plan in this browser.</p>
+        <div class="row"><button class="btn" id="dlsub" ${s ? "" : "disabled"}>Download submission.txt</button>
+        <button class="btn sec" id="dl" ${s ? "" : "disabled"}>Download session.json</button></div></div>`;
+    }
     return `<div class="card"><h3>Exports</h3>${S.mode === "live" ? `<ul>${files.map((f) => `<li><a href="${esc(API)}/api/export/${f}">${f}</a></li>`).join("")}</ul>` : "<p class='mute'>File downloads need the live backend.</p>"}
       ${s ? `<button class="btn sec" id="dl">Download the session shown here (JSON)</button>` : ""}</div>`;
   },
@@ -167,7 +199,36 @@ function callBox(c) {
 function wire() {
   document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => { TAB = b.dataset.tab; render(); $("#view").focus(); }));
   const send = $("#send");
-  if (send) send.onclick = async () => {
+  if (send && S.mode === "cloud") {
+    send.onclick = async () => {
+      const files = Array.from(($("#files") && $("#files").files) || []);
+      const items = await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() })));
+      if ($("#msg").value.trim()) items.push({ name: "pasted.txt", text: $("#msg").value });
+      if (!items.length) { $("#sendinfo").textContent = "Choose a .txt file or paste a message first."; return; }
+      send.disabled = true;
+      const out = [];
+      for (const it of items) {
+        $("#sendinfo").textContent = `Running ${it.name} (model read + checks)...`;
+        const before = S.session && S.session.plan;
+        try {
+          const r = await fetch("/api/run", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: it.text, filename: it.name, session: S.session }) });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || r.statusText);
+          S.session = data.session; S.submission = data.submission;
+          store.set("pf_session", JSON.stringify(data.session)); store.set("pf_submission", data.submission);
+          const after = data.session.plan, run = data.run;
+          out.push(`<div class="card"><h3>${esc(it.name)}: run ${run.run_id} (${esc(run.mode)})</h3>
+            <p>${data.ok ? "" : pill("error") + " " + esc(data.error)} Plan ${after && after.valid ? pill("VALID", "ok") : pill("NOT valid", "error")} · ${run.calls.length} call(s) · predicted ${esc(run.prediction.tags.join(", "))} · actual ${esc((run.actual_tags || []).join(", "))} · ${run.seconds} s</p>
+            <table><tr><th>Verdict</th><th>Reason</th></tr>${run.decisions.filter((d) => d.verdict !== "accepted").map((d) => `<tr><td>${pill(d.verdict)}</td><td>${esc(d.reason)}</td></tr>`).join("") || "<tr><td colspan=2>all facts accepted</td></tr>"}</table>
+            ${before && after ? `<p>Budget ${rs(before.budget.total)} → <b>${rs(after.budget.total)}</b> · people ${before.people.on_site} → <b>${after.people.on_site}</b></p>` : ""}</div>`);
+        } catch (e) { out.push(`<div class="card">${pill("error")} ${esc(it.name)}: ${esc(e.message)}</div>`); }
+      }
+      TAB = "update"; render();
+      $("#result").innerHTML = out.join("");
+      $("#sendinfo").textContent = "Done. See the Overview, Plan, Rejected and Trace tabs.";
+    };
+  } else if (send) send.onclick = async () => {
     const text = $("#msg").value; if (!text.trim()) return;
     send.disabled = true; $("#sendinfo").textContent = "Running (model read + checks)...";
     const before = S.session && S.session.plan;
@@ -183,6 +244,11 @@ function wire() {
         ${before ? `<p>Budget ${rs(before.budget.total)} → <b>${rs(after.budget.total)}</b> · people ${before.people.on_site} → <b>${after.people.on_site}</b> · venue ${esc(before.venue.chosen && before.venue.chosen.name)} → <b>${esc(after.venue.chosen && after.venue.chosen.name)}</b></p>` : ""}</div>`;
     } catch (e) { $("#sendinfo").textContent = "Failed: " + e.message; send.disabled = false; }
   };
+  const rst = $("#reset");
+  if (rst) rst.onclick = () => { if (!confirm("Clear the plan in this browser and start a new one?")) return;
+    S.session = null; store.set("pf_session", "null"); store.set("pf_submission", ""); render(); };
+  const dls = $("#dlsub");
+  if (dls) dls.onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([S.submission || store.get("pf_submission") || ""], { type: "text/plain" })); a.download = "submission.txt"; a.click(); };
   const dl = $("#dl");
   if (dl) dl.onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S.session, null, 1)], { type: "application/json" })); a.download = "session.json"; a.click(); };
 }

@@ -141,6 +141,14 @@ def rejected(sess):
             for m in sess["messages"] if m["status"] in ("rejected", "partly rejected", "outdated", "information only", "irrelevant")]
 
 
+def submission_text(sess: dict) -> str:
+    """Plan + rejected messages + full trace with totals: the file to upload on the form."""
+    rej = "\n".join(f"- {r['message']} {r['sender']} ({r['date']}): {r['status']}\n  \"{r['text']}\"\n  "
+                    + "\n  ".join(r["reasons"]) for r in rejected(sess))
+    return plan_text(sess.get("plan")) + "\nREJECTED / OUTDATED / IGNORED MESSAGES\n" + (rej or "none") \
+        + "\n\n" + trace_text(sess)
+
+
 def export(sess: dict, out_dir=OUT_DIR) -> list:
     plan = sess.get("plan")
     files = {
@@ -155,10 +163,7 @@ def export(sess: dict, out_dir=OUT_DIR) -> list:
                                     for r in sess["runs"]], indent=1),
         "session.json": json.dumps(sess, indent=1, ensure_ascii=False, default=str),
     }
-    rej = "\n".join(f"- {r['message']} {r['sender']} ({r['date']}): {r['status']}\n  \"{r['text']}\"\n  "
-                    + "\n  ".join(r["reasons"]) for r in rejected(sess))
-    files["submission.txt"] = files["latest_plan.txt"] + "\nREJECTED / OUTDATED / IGNORED MESSAGES\n" + (rej or "none") \
-        + "\n\n" + files["full_trace.txt"]
+    files["submission.txt"] = submission_text(sess)
     for name, text in files.items():
         atomic_write(out_dir / name, text)
     return [str(out_dir / n) for n in files]

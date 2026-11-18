@@ -62,13 +62,20 @@ appear in the trace.
 ## Tests
 
 ```powershell
-python -m unittest discover -s tests -t .      # 35 tests, no network needed
+python -m unittest discover -s tests -t .      # 36 tests, no network needed
 ```
 
 They cover the sample pack (177 people, Hall A, Rs 1,200 box, Rs 547,400), both practice messages,
 a self-written unseen-style pack (wheelchair access, Asr break at a fixed time, halal food, a changed
 headcount, a wrong venue move), supplier authority, failed and unusable model output, the fallback model,
 and trace honesty. Test fixtures are hand-written and used only by tests.
+
+## Use it in the browser (no terminal, no code)
+
+**https://hackathonplanner.vercel.app** → New message tab → choose the pack `.txt` → Run, then upload or paste
+each new message. A Vercel function (`api/run.py`) runs the **same** `pipeline.run` as `main.py`; the
+Gemini key is a Vercel environment variable, and each visitor's plan is kept in their own browser.
+Exports tab → download `submission.txt`.
 
 ## Web / mobile / laptop
 
