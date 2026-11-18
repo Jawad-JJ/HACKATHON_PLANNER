@@ -51,7 +51,7 @@ archived in `state/archive/`. A file with one message updates the current plan. 
 ## Tests
 
 ```powershell
-python -m unittest discover -s tests -t .      # 29 tests, no network needed
+python -m unittest discover -s tests -t .      # 33 tests, no network needed
 ```
 
 They cover the sample pack (177 people, Hall A, Rs 1,200 box, Rs 547,400), both practice messages,
@@ -65,4 +65,4 @@ and trace honesty. Test fixtures are hand-written and used only by tests.
 - **PWA:** use "Install app" in Chrome/Edge (laptop) or "Add to Home screen" (phone).
 - **Vercel:** hosts `web/` as a static PWA (see `vercel.json`). It connects to a running laptop backend, or opens an exported `outputs/session.json` read-only. Keys and state never leave the laptop.
 
-Docs: `docs/TEAM_GUIDE.md` (how to defend each part) · `docs/TRACEABILITY.md` (brief -> code -> test).
+Docs: `docs/TEST_DAY.md` (runbook) · `docs/TEAM_GUIDE.md` (how to defend each part) · `docs/TRACEABILITY.md` (brief -> code -> test).
