@@ -19,6 +19,7 @@ FULL_RUN_SECONDS = 110      # brief: full run cut off at 120 s
 UPDATE_SECONDS = 55         # brief: update cut off at 60 s
 UPDATE_MAX_CALLS = 5        # brief: at most 5 model calls per update; we plan for 1 (2 with a repair)
 PACK_MIN_BLOCKS = 4
+MAX_READ_ATTEMPTS = 3       # failed/unusable calls are retried (alternating models), still far below the 5-call limit
 
 
 PREDICTION = {"tags": ["reading"], "calls": 1,
@@ -59,8 +60,10 @@ def run(raw: RawInput, client: LLMClient, state_dir=STATE_DIR) -> dict:
         if rec.status != "ok":
             error = rec.error
             time_left = client.deadline - time.monotonic()
-            if len(recs) < 2 and time_left > 15:   # one retry, without JSON mode if that was the problem
+            if len(recs) < MAX_READ_ATTEMPTS and time_left > 12:   # retry (other model), without JSON mode if that failed
                 no_json = "response_format" in rec.error or "json" in rec.error.lower()
+                if len(recs) >= 2:
+                    time.sleep(1.5)                                  # brief pause before a third try (busy API)
                 attempts.append((SYSTEM_PROMPT, user, jm and not no_json))
             continue
         try:
@@ -68,7 +71,7 @@ def run(raw: RawInput, client: LLMClient, state_dir=STATE_DIR) -> dict:
             break
         except Exception as e:  # noqa: BLE001
             error = f"model output was not usable JSON: {e}"
-            if len(recs) < 2:
+            if len(recs) < MAX_READ_ATTEMPTS:
                 attempts.append((SYSTEM_PROMPT, user + "\n\nReturn ONLY the JSON object described.", jm))
 
     # ------------------------------------------------------------------ new pack or update? (from what was read)

@@ -83,9 +83,9 @@ class Honesty(unittest.TestCase):
     def test_failed_call_is_traced_and_plan_kept(self):
         state = Path(tempfile.mkdtemp())
         run(read_input(SAMPLES / "sample_pack.txt"), scripted("sample_pack_extraction.json"), state)
-        r = run(read_input(SAMPLES / "practice_change_printing.txt"), scripted("ERROR", "ERROR"), state)
+        r = run(read_input(SAMPLES / "practice_change_printing.txt"), scripted("ERROR", "ERROR", "ERROR"), state)
         self.assertFalse(r["ok"])
-        self.assertEqual([c["status"] for c in r["session"]["calls"]][-2:], ["error", "error"])
+        self.assertEqual([c["status"] for c in r["session"]["calls"]][-3:], ["error", "error", "error"])
         self.assertTrue(r["session"]["plan"]["valid"])
         self.assertEqual(r["session"]["plan"]["budget"]["total"], 547400)
 
@@ -164,3 +164,15 @@ class PackOrUpdate(unittest.TestCase):
         r = run(read_input(SAMPLES / "sample_pack.txt"), scripted("sample_pack_extraction.json"), state)
         self.assertEqual((r["run"]["mode"], r["run"]["run_id"], len(r["session"]["calls"])), ("new pack", 1, 1))
         self.assertTrue(list((state / "archive").glob("session-*.json")))
+
+
+class BusyApi(unittest.TestCase):
+    def test_two_failures_then_success_alternating_models(self):
+        from planforge.config import ModelConfig
+        state = Path(tempfile.mkdtemp())
+        client = scripted("ERROR", "ERROR", "sample_pack_extraction.json")
+        client.fallback = ModelConfig("test", "", "", "scripted-fallback", 5, True)
+        r = run(read_input(SAMPLES / "sample_pack.txt"), client, state)
+        self.assertTrue(r["ok"] and r["session"]["plan"]["valid"])
+        self.assertEqual(len(r["session"]["calls"]), 3)
+        self.assertLessEqual(len(r["session"]["calls"]), 5)

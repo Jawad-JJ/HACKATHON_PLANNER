@@ -46,8 +46,11 @@ class LLMClient:
     # ------------------------------------------------------------------ call
     def chat(self, tag: str, system: str, user: str, json_mode: bool = True) -> CallRecord:
         mine = [r for r in self.records if r.run_id == self.run_id]
-        # after a failed call in this run, switch to the fallback model (if configured); traced under its own name
-        self.cfg = self.fallback if (self.fallback and mine and mine[-1].status != "ok") else self.primary
+        # after a failed call in this run, alternate primary <-> fallback (if configured); each traced under its own name
+        if self.fallback and mine and mine[-1].status != "ok":
+            self.cfg = self.primary if self.cfg is self.fallback else self.fallback
+        elif not mine:
+            self.cfg = self.primary
         if len(mine) >= self.max_calls:
             raise CallBudgetExceeded(f"call limit of {self.max_calls} reached for this run")
         timeout = self.cfg.timeout
