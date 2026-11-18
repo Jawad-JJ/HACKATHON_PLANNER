@@ -1,0 +1,1 @@
+{"messages":[{"blocks":[1],"sender":"Finance","role":"finance","relevant":true,"facts":[{"kind":"committed_cost","item":"printing bill","amount":15000}]}]}

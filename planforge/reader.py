@@ -126,6 +126,9 @@ ROLE_ALIASES = {
 FIELD_ALIASES = {"seats": "capacity", "rent": "cost", "price": "price_per_head", "per_head": "price_per_head",
                  "number": "count", "total": "amount", "honorarium_each": "honorarium", "duration": "minutes",
                  "title": "name", "description": "text", "delivery": "fixed_cost", "delivery_cost": "fixed_cost"}
+MAIN_FIELD = {"duration": "minutes", "headcount": "count", "team_size": "value", "teams": "count",
+              "budget_cap": "amount", "committed_cost": "amount", "optional_cost": "amount", "venue_option": "cost",
+              "food_option": "price_per_head", "order_change": "quantity", "schedule_item": "minutes"}
 ROLES = {"organizer", "finance", "venue", "caterer", "judging", "judge", "student", "other"}
 
 
@@ -180,6 +183,14 @@ def normalize_fact(f: dict):
             out[k] = v.strip() if isinstance(v, str) else v
     if out["kind"] == "requirement":
         out["value"] = num(f.get("value"))
+    main = MAIN_FIELD.get(out["kind"])
+    if main and out.get(main) is None:      # model used a generic field name, e.g. duration {"value": 240}
+        for alt in ("value", "amount", "count", "number", "minutes", "quantity", "cost", "price_per_head"):
+            if alt != main and out.get(alt) is not None and not (out["kind"] == "venue_option" and alt == "capacity"):
+                out[main] = minutes(out[alt]) if main == "minutes" else num(out[alt])
+                if alt not in ("capacity",):
+                    out.pop(alt, None)
+                break
     if out["kind"] in ("duration", "schedule_item") and out.get("minutes") is None and f.get("hours") is not None:
         h = num(f.get("hours"))
         out["minutes"] = int(h * 60) if h is not None else None
@@ -196,6 +207,8 @@ def normalize_fact(f: dict):
 def parse_reading(text: str, n_blocks: int) -> list:
     """Model output -> list of message dicts with normalized facts. Raises ValueError if unusable."""
     data = extract_json(text)
+    if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict) and "messages" in data[0]:
+        data = data[0]                       # some models wrap the object in a list
     msgs = data.get("messages") if isinstance(data, dict) else data
     if not isinstance(msgs, list):
         raise ValueError("no 'messages' list in model output")
