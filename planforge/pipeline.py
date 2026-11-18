@@ -87,6 +87,13 @@ def run(raw: RawInput, client: LLMClient, state_dir=STATE_DIR) -> dict:
     for i, m in enumerate(messages):
         mid = f"M{base_order + i + 1}"
         d = ledger.parse_date(m.get("date"), year)
+        if not m["blocks"]:   # model forgot block numbers: locate the block containing a quoted phrase
+            for f in m["facts"]:
+                q = (f.get("quote") or "").lower()
+                hit = [i for i, b in enumerate(raw.blocks, 1) if q and q in b.lower()]
+                if hit:
+                    m["blocks"] = hit[:1]
+                    break
         text = "\n".join(raw.blocks[b - 1] for b in m["blocks"]) if m["blocks"] else ""
         msg = {"id": mid, "run_id": run_id, "sender": m["sender"], "role": m["role"], "date_raw": m.get("date"),
                "date_iso": d.isoformat() if d else None, "order": base_order + i + 1, "text": text,

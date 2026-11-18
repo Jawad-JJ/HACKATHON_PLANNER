@@ -13,7 +13,7 @@ def checks(plan: dict) -> list:
     errs = []
     if b.get("lines") is not None and sum(l["amount"] for l in b["lines"]) != b.get("total"):
         errs.append("budget lines do not add up")
-    if f.get("chosen") and f.get("quantity") is not None and f.get("cost") != f["chosen"]["price_per_head"] * f["quantity"]:
+    if f.get("chosen") and f.get("quantity") is not None and f.get("cost") != f["chosen"]["price_per_head"] * f["quantity"] + f["chosen"].get("fixed_cost", 0):
         errs.append("food cost != price x quantity")
     if p.get("on_site") is not None and p["on_site"] != sum(x or 0 for x in (p["students"], p["staff"], p["judges"], p["other"])):
         errs.append("headcount does not add up")

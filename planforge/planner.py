@@ -23,8 +23,11 @@ class Ctx:
         one = lambda k: (by(k) or [None])[0]  # noqa: E731
         self.team_size, self.teams_f, self.duration_f = one("team_size"), one("teams"), one("duration")
         self.start_f, self.cap_f, self.terms = one("start_time"), one("budget_cap"), one("judge_terms") or {}
-        self.venues = [f for f in by("venue_option") if f.get("capacity") and f.get("cost") is not None]
-        self.foods = sorted([f for f in by("food_option") if f.get("price_per_head") is not None],
+        self.venues = [f for f in by("venue_option") if f.get("capacity") and f.get("available") is not False
+                       and (f.get("cost") is not None or f.get("cost_per_hour") is not None)]
+        self.unavailable = [f for f in by("venue_option") + by("food_option") if f.get("available") is False]
+        self.foods = sorted([f for f in by("food_option") if f.get("price_per_head") is not None
+                             and f.get("available") is not False],
                             key=lambda f: f.get("first_order", f["order"]))
         self.committed = by("committed_cost")
         self.optional = by("optional_cost")
@@ -92,12 +95,24 @@ def build_plan(facts) -> dict:
     duration = ctx.duration_f.get("minutes") if ctx.duration_f else None
     if duration is None:
         miss("schedule", "event duration not stated")
+    for i, v in enumerate(ctx.venues):
+        if v.get("cost") is None:
+            if duration is None:
+                miss("venue", f"{v['name']} is priced per hour but the event length is unknown")
+                ctx.venues[i] = dict(v, cost=None)
+            else:
+                ctx.venues[i] = dict(v, cost=int(v["cost_per_hour"] * math.ceil(duration / 60)),
+                                     priced=f"Rs {v['cost_per_hour']:,}/hour x {math.ceil(duration / 60)} h")
+    ctx.venues = [v for v in ctx.venues if v.get("cost") is not None]
     mandatory = [i for i in ctx.items if i.get("minutes")]
     mand_min = sum(int(i["minutes"]) for i in mandatory)
     min_judges = max([int(r["value"]) for r in _reqs(ctx, "judging.judges") if r.get("op") in (">=", "==") and r.get("value")] or [0])
 
     judges_used = rounds = judging_min = None
     assignment = []
+    if teams and mpt and judges_avail is not None and not per:
+        per = teams
+        warn("judging", "no limit on teams per judge stated - only the time available limits each judge's load")
     if teams and per and mpt and judges_avail is not None:
         needed = max(math.ceil(teams / per), min_judges)
         window = (duration - mand_min) if duration else None
@@ -200,7 +215,8 @@ def build_plan(facts) -> dict:
     honor = ctx.terms.get("honorarium")
     judges_cost = judges_used * honor if (judges_used is not None and honor is not None) else None
     if judges_used is not None and honor is None:
-        miss("budget", "judge honorarium not stated")
+        warn("budget", "no judge honorarium stated - judges cost Rs 0")
+        honor = 0
     committed = [{"item": c.get("item"), "amount": int(c["amount"]), "src": c["id"]}
                  for c in ctx.committed if c.get("amount") is not None]
     approved_opt = [{"item": o.get("item"), "amount": int(o["amount"]), "src": o["id"]}
@@ -216,7 +232,7 @@ def build_plan(facts) -> dict:
         combos = []
         for fi, f in enumerate(foods_ok):
             for v in venues_ok:
-                food_cost = f["price_per_head"] * qty
+                food_cost = f["price_per_head"] * qty + int(f.get("fixed_cost") or 0)
                 total = v["cost"] + food_cost + fixed
                 ok = cap is None or total <= cap
                 for r in _reqs(ctx, "budget.total") + _reqs(ctx, "food.cost"):
@@ -236,11 +252,14 @@ def build_plan(facts) -> dict:
                      "alternatives": [{"name": v["name"], "capacity": v["capacity"], "cost": v["cost"],
                                        "why_not": "more expensive" if venue and v is not venue else ""}
                                       for v in venues_ok if v is not venue] +
-                                     [{"name": n["name"], "why_not": ", ".join(n["why"])} for n in venue_notes]}
-    plan["food"] = {"chosen": food and {"name": food["name"], "price_per_head": food["price_per_head"], "src": food["id"]},
+                                     [{"name": n["name"], "why_not": ", ".join(n["why"])} for n in venue_notes] +
+                                     [{"name": u["name"], "why_not": "not available"} for u in ctx.unavailable
+                                      if u["kind"] == "venue_option"]}
+    plan["food"] = {"chosen": food and {"name": food["name"], "price_per_head": food["price_per_head"],
+                                        "fixed_cost": int(food.get("fixed_cost") or 0), "src": food["id"]},
                     "quantity": qty, "cost": food_cost, "required_features": f_feats,
                     "alternatives": [{"name": f["name"], "price_per_head": f["price_per_head"],
-                                      "would_cost": f["price_per_head"] * qty if qty else None}
+                                      "would_cost": f["price_per_head"] * qty + int(f.get("fixed_cost") or 0) if qty else None}
                                      for f in foods_ok if f is not food] +
                                     [{"name": n["name"], "why_not": ", ".join(n["why"])} for n in food_notes],
                     "rule": "keep the menu that was quoted first (at its latest price) unless the budget forces a cheaper one"}
@@ -253,7 +272,9 @@ def build_plan(facts) -> dict:
     if venue:
         lines.append({"item": f"Venue: {venue['name']}", "amount": venue["cost"], "src": venue["id"]})
     if food:
-        lines.append({"item": f"Food: {qty} x {food['name']} @ Rs {food['price_per_head']:,}", "amount": food_cost, "src": food["id"]})
+        lines.append({"item": f"Food: {qty} x {food['name']} @ Rs {food['price_per_head']:,}"
+                      + (f" + Rs {int(food['fixed_cost']):,} fixed charge" if food.get("fixed_cost") else ""),
+                      "amount": food_cost, "src": food["id"]})
     if judges_cost is not None:
         lines.append({"item": f"Judges: {judges_used} x Rs {honor:,} honorarium", "amount": judges_cost,
                       "src": ctx.terms.get("honorarium_src")})
